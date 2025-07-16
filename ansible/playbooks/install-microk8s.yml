@@ -1,0 +1,46 @@
+---
+- name: Install and configure MicroK8s on Ubuntu
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install snapd
+      apt:
+        name: snapd
+        state: present
+
+    - name: Install MicroK8s
+      snap:
+        name: microk8s
+        classic: yes
+        channel: 1.28/stable
+
+    - name: Add user to microk8s group
+      user:
+        name: "{{ lookup('env', 'USER') }}"
+        groups: microk8s
+        append: yes
+
+    - name: Enable MicroK8s add-ons
+      command: microk8s enable dns storage
+      changed_when: false
+
+    - name: Wait for MicroK8s to be ready
+      command: microk8s status --wait-ready
+      changed_when: false
+
+    - name: Create kubectl config directory
+      file:
+        path: /home/"{{ lookup('env', 'USER') }}"/.kube
+        state: directory
+        owner: "{{ lookup('env', 'USER') }}"
+        group: "{{ lookup('env', 'USER') }}"
+        mode: '0755'
+
+    - name: Copy MicroK8s config
+      command: microk8s config > /home/"{{ lookup('env', 'USER') }}"/.kube/config
+      changed_when: false
